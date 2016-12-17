@@ -9,14 +9,24 @@ import java.io.IOException;
 public class Hook {
     public static void main(String[] args) throws IOException, InterruptedException {
         int port = 4567;
+        String command = "";
 
-        if (args.length == 2 && args[0].equals("-p")) {
-            port = Integer.valueOf(args[1]);
+        for (int i = 0; i < args.length; i++) {
+            if (args[i].equals("-p")) {
+                port = Integer.valueOf(args[++i]);
+            }
+
+            if (args[i].equals("-c")) {
+                while(++i < args.length && !args[i].startsWith("-")) {
+                    command += args[i] + " ";
+                }
+            }
         }
 
-        System.out.println("!!!Docker hook handler started on port " + port);
+        System.out.println("!!! Docker hook handler started on port " + port +
+                            " with command " + command + " !!!");
 
-        MyServer server = new MyServer(port);
+        MyServer server = new MyServer(port, command);
         server.run();
     }
 }

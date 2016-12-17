@@ -12,8 +12,11 @@ import java.net.Socket;
  */
 public class MyServer implements Runnable {
 
-    public MyServer(int port) {
+    public static final String REPO_NAME_FROM_DOCKER_HOOK = "@repo_name";
+
+    public MyServer(int port, String command) {
         this.port = port;
+        this.command = command;
     }
 
     public void stop() {
@@ -53,8 +56,9 @@ public class MyServer implements Runnable {
 
                     if (post.has(repoName)) {
                         System.out.println(post.findValue(repoName).asText());
-                        new Thread(() -> exec("docker run " +
-                                post.findValue(repoName).asText()
+
+                        new Thread(() -> exec(
+                                command.replaceAll(REPO_NAME_FROM_DOCKER_HOOK, post.findValue(repoName).asText())
                         )).start();
                     }
                 }
@@ -103,4 +107,5 @@ public class MyServer implements Runnable {
 
     private boolean needToStop = false;
     private int port;
+    private String command;
 }
