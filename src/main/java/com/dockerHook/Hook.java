@@ -17,6 +17,6 @@ public class Hook {
         System.out.println("!!!Docker hook handler started on port " + port);
 
         MyServer server = new MyServer(port);
-        new Thread(server).run();
+        server.run();
     }
 }

@@ -1,5 +1,8 @@
 package com.dockerHook;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -13,15 +16,22 @@ public class MyServer implements Runnable {
         this.port = port;
     }
 
+    public void stop() {
+        needToStop = true;
+    }
+
     @Override
     public void run() {
         String contentLength = "Content-Length: ";
-        String repoName = "\"repo_name\": ";
+        String repoName = "repo_name";
 
         try(ServerSocket serverSocket = new ServerSocket(port)) {
-            while(!needToStop && !Thread.interrupted()) {
-                try(Socket socket = serverSocket.accept()) {
+            Socket socket;
 
+            while(!needToStop && !Thread.interrupted()) {
+                socket = serverSocket.accept();
+
+                try {
                     BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                     int contentSize = 0;
                     String header;
@@ -36,10 +46,22 @@ public class MyServer implements Runnable {
                     in.read(buf, 0, contentSize);
                     String postBody = new String(buf);
 
-                    if (postBody.contains(repoName)) {
-                        exec("  docker pull hello-world");
-                    }
+                    System.out.println(postBody);
 
+                    ObjectMapper mapper = new ObjectMapper();
+                    JsonNode post = mapper.readTree(postBody);
+
+                    if (post.has(repoName)) {
+                        System.out.println(post.findValue(repoName).asText());
+                        new Thread(() -> exec("docker run " +
+                                post.findValue(repoName).asText()
+                        )).start();
+                    }
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                }
+                finally {
                     String responce =
                             "HTTP/1.1 200 OK\n" +
                                     "Connection: Closed";
@@ -47,9 +69,7 @@ public class MyServer implements Runnable {
                     BufferedWriter out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
                     out.write(responce);
                     out.close();
-                }
-                catch (Exception e) {
-                    e.printStackTrace();
+                    socket.close();
                 }
             }
         }
@@ -59,17 +79,10 @@ public class MyServer implements Runnable {
     }
 
     private void exec(String command) {
-        StringBuffer output = new StringBuffer();
-
-        Process p;
         try {
             ProcessBuilder processBuilder = new ProcessBuilder("bash", "-c", command);
             Process process = processBuilder.start();
             process.waitFor();
-
-
-            //p = Runtime.getRuntime().exec(command);
-            //p.waitFor();
 
             BufferedReader err = new BufferedReader(new InputStreamReader(process.getErrorStream()));
             BufferedReader out = new BufferedReader(new InputStreamReader(process.getInputStream()));
@@ -88,10 +101,6 @@ public class MyServer implements Runnable {
         }
     }
 
-    public void stop() {
-        needToStop = true;
-    }
-
-    boolean needToStop = false;
-    int port;
+    private boolean needToStop = false;
+    private int port;
 }
